@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KOC Portal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f4; --bg3: #efefed;
+    --text: #1a1a1a; --text2: #6b7280; --text3: #9ca3af;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.2);
+    --radius: 8px; --radius-lg: 12px;
+    --blue: #1B4DFF; --green: #16a34a; --amber: #f59e0b; --red: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --bg2: #2c2c2e; --bg3: #3a3a3c;
+      --text: #f5f5f5; --text2: #a1a1aa; --text3: #71717a;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── Login ── */
+  .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .login-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; width: 100%; max-width: 400px; }
+  .logo-badge { background: var(--blue); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; letter-spacing: 0.06em; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 12px; font-size: 14px;
+    border: 0.5px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg); color: var(--text); outline: none; font-family: inherit;
+  }
+  .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,77,255,0.12); }
+  .btn { width: 100%; padding: 11px; background: var(--blue); color: #fff; font-size: 14px; font-weight: 600; font-family: inherit; border: none; border-radius: var(--radius); cursor: pointer; margin-top: 6px; }
+  .btn:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; font-weight: 500; background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); cursor: pointer; color: var(--text); font-family: inherit; }
+  .btn-sm:hover { background: var(--bg2); }
+  .error { font-size: 12px; color: #b91c1c; background: #fee2e2; border: 0.5px solid #fca5a5; border-radius: var(--radius); padding: 8px 12px; margin-bottom: 12px; display: none; }
+  .success { font-size: 12px; color: #15803d; background: #dcfce7; border: 0.5px solid #86efac; border-radius: var(--radius); padding: 8px 12px; margin-bottom: 12px; display: none; }
+  .hint { background: var(--bg2); border-radius: var(--radius); padding: 10px 12px; margin-top: 1rem; font-size: 12px; color: var(--text2); line-height: 1.7; }
+
+  .api-box { background: var(--bg2); border-radius: var(--radius); padding: 12px; margin-bottom: 1.25rem; }
+  .api-row { display: flex; gap: 8px; }
+  .api-row input { flex: 1; padding: 8px 12px; font-size: 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; font-family: inherit; }
+  .api-row input:focus { border-color: var(--blue); }
+  .api-status { font-size: 11px; color: var(--text2); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+  .dot.ok { background: var(--green); } .dot.err { background: var(--red); }
+
+  /* ── App shell ── */
+  .app { max-width: 900px; margin: 0 auto; padding: 1rem; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; }
+  .user-pill { display: flex; align-items: center; gap: 8px; background: var(--bg2); border-radius: 20px; padding: 5px 12px 5px 6px; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+
+  /* ── Metrics ── */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--bg2); border-radius: var(--radius); padding: 14px 16px; }
+  .metric-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 600; color: var(--text); }
+  .metric-sub { font-size: 11px; margin-top: 4px; color: var(--green); }
+
+  /* ── Cards ── */
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; }
+  .tab { font-size: 13px; font-weight: 500; padding: 6px 14px 10px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .atab { display: none; } .atab.active { display: block; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.04em; padding: 0 8px 10px; border-bottom: 0.5px solid var(--border); }
+  td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .b-green { background: #dcfce7; color: #15803d; }
+  .b-amber { background: #fef3c7; color: #b45309; }
+  .b-blue  { background: #dbeafe; color: #1d4ed8; }
+  .b-red   { background: #fee2e2; color: #b91c1c; }
+
+  /* ── Progress ── */
+  .prog-list { display: flex; flex-direction: column; gap: 10px; }
+  .prog-item { display: grid; grid-template-columns: 1fr 3fr 40px; align-items: center; gap: 10px; font-size: 12px; }
+  .prog-label { color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prog-bg { background: var(--bg3); border-radius: 4px; height: 6px; }
+  .prog-fill { border-radius: 4px; height: 6px; transition: width 0.4s; }
+  .prog-pct { font-size: 12px; font-weight: 600; text-align: right; color: var(--text); }
+
+  /* ── Spinner ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div class="screen active" id="screen-login">
+  <div class="login-page">
+    <div class="login-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.75rem;">
+        <span class="logo-badge">KOC</span>
+        <span style="font-size:13px;color:var(--text2)">Portal</span>
+      </div>
+
+      <div class="api-box">
+        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;">Apps Script URL</div>
+        <div class="api-row">
+          <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+          <button class="btn-sm" onclick="testApi()">Kiểm tra</button>
+        </div>
+        <div class="api-status"><span class="dot" id="apiDot"></span><span id="apiStatusText">Chưa cấu hình</span></div>
+      </div>
+
+      <div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px;">Đăng nhập</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:1.25rem;">Nhập tài khoản KOC của bạn</div>
+      <div class="error" id="loginErr"></div>
+      <div class="field"><label>Tên đăng nhập</label><input type="text" id="loginUser" placeholder="vd: lananh.koc" /></div>
+      <div class="field"><label>Mật khẩu</label><input type="password" id="loginPass" placeholder="••••••••" /></div>
+      <button class="btn" id="btnLogin" onclick="doLogin()">Đăng nhập</button>
+      <div class="hint">
+        <strong style="color:var(--text)">Demo (không cần URL):</strong><br>
+        KOC: <code>lananh.koc</code> / <code>koc123</code><br>
+        Admin: <code>admin</code> / <code>admin123</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PORTAL KOC ══ -->
+<div class="screen" id="screen-portal">
+  <div class="app">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:8px;"><span class="logo-badge">KOC</span><span style="font-size:14px;font-weight:600;">Portal cá nhân</span></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="user-pill"><div class="avatar" id="portalAvatar" style="background:var(--blue)">LA</div><span style="font-size:12px;font-weight:500;" id="portalName">Lan Anh</span></div>
+        <button class="btn-sm" onclick="doLogout()">Đăng xuất</button>
+      </div>
+    </div>
+    <div class="metrics" id="portalMetrics"></div>
+    <div class="card"><div class="card-title">Tiến độ mục tiêu tháng này</div><div class="prog-list" id="portalProgress"></div></div>
+    <div class="card"><div class="card-title">Lịch sử doanh thu 6 tháng</div><div style="position:relative;height:180px;"><canvas id="portalChart" role="img" aria-label="Lịch sử doanh thu"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div class="screen" id="screen-admin">
+  <div class="app">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:8px;"><span class="logo-badge">KOC</span><span style="font-size:14px;font-weight:600;">Quản trị hệ thống</span></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="user-pill"><div class="avatar" style="background:#7c3aed">AD</div><span style="font-size:12px;font-weight:500;">Admin</span></div>
+        <button class="btn-sm" onclick="doLogout()">Đăng xuất</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchATab('accounts')">Tài khoản KOC</div>
+      <div class="tab" onclick="switchATab('add')">Thêm tài khoản</div>
+      <div class="tab" onclick="switchATab('reset')">Đặt lại mật khẩu</div>
+    </div>
+
+    <div class="atab active" id="atab-accounts">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span class="card-title" style="margin:0">Danh sách KOC</span>
+          <button class="btn-sm" onclick="loadAdminData()">Làm mới</button>
+        </div>
+        <div id="adminLoading" style="display:none;font-size:13px;color:var(--text2);padding:1rem 0;"><span class="spinner"></span>Đang tải từ Google Sheets...</div>
+        <table><thead><tr>
+          <th style="width:26%">KOC</th><th style="width:20%">Tài khoản</th>
+          <th style="width:14%">Platform</th><th style="width:14%">Doanh thu</th>
+          <th style="width:13%">Trạng thái</th><th style="width:13%">Thao tác</th>
+        </tr></thead><tbody id="adminTableBody"></tbody></table>
+      </div>
+    </div>
+
+    <div class="atab" id="atab-add">
+      <div class="card" style="max-width:420px;">
+        <div class="card-title">Thêm tài khoản KOC mới</div>
+        <div class="error" id="addErr"></div>
+        <div class="success" id="addSuccess">Tạo tài khoản thành công!</div>
+        <div class="field"><label>Họ và tên</label><input type="text" id="newName" placeholder="Nguyễn Văn A" /></div>
+        <div class="field"><label>Tên đăng nhập</label><input type="text" id="newUser" placeholder="vd: vana.koc" /></div>
+        <div class="field"><label>Mật khẩu</label><input type="password" id="newPass" placeholder="Tối thiểu 6 ký tự" /></div>
+        <div class="field"><label>Platform</label>
+          <select id="newPlat"><option>Tiktok</option><option>Instagram</option><option>Youtube</option><option>Facebook</option></select>
+        </div>
+        <button class="btn" id="btnAdd" onclick="addAccount()">Tạo tài khoản</button>
+      </div>
+    </div>
+
+    <div class="atab" id="atab-reset">
+      <div class="card" style="max-width:420px;">
+        <div class="card-title">Đặt lại mật khẩu KOC</div>
+        <div class="error" id="resetErr"></div>
+        <div class="success" id="resetSuccess">Đặt lại mật khẩu thành công!</div>
+        <div class="field"><label>Tên đăng nhập KOC</label><input type="text" id="resetUser" placeholder="vd: lananh.koc" /></div>
+        <div class="field"><label>Mật khẩu mới</label><input type="password" id="resetPass" placeholder="Tối thiểu 6 ký tự" /></div>
+        <button class="btn" id="btnReset" onclick="doReset()">Xác nhận đặt lại</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AC = ['#1B4DFF','#16a34a','#f59e0b','#7c3aed','#0891b2','#ea580c'];
+const aC = i => AC[i % AC.length];
+const PB = { Tiktok:'b-red', Instagram:'b-blue', Youtube:'b-red', Facebook:'b-blue' };
+
+let session = null, apiUrl = '', portalChartInst = null;
+
+const DEMO = {
+  accounts: [
+    { username:'lananh.koc',   password:'koc123',   role:'koc',   status:'active',   full_name:'Nguyễn Lan Anh', platform:'Tiktok' },
+    { username:'minhkhoa.koc', password:'koc123',   role:'koc',   status:'active',   full_name:'Trần Minh Khoa', platform:'Youtube' },
+    { username:'quocbao.koc',  password:'koc123',   role:'koc',   status:'inactive', full_name:'Lê Quốc Bảo',   platform:'Facebook' },
+    { username:'admin',        password:'admin123', role:'admin', status:'active',   full_name:'Admin',          platform:'—' },
+  ],
+  kocData: {
+    'lananh.koc':   { doanh_thu:142, don_hang:318, hoa_hong:14.2, leads:85,  lead_chat_luong:62, lead_chot:41, muc_tieu_rev:160, muc_tieu_lead:100, history:[98,115,128,135,130,142] },
+    'minhkhoa.koc': { doanh_thu:198, don_hang:445, hoa_hong:19.8, leads:112, lead_chat_luong:78, lead_chot:55, muc_tieu_rev:200, muc_tieu_lead:120, history:[140,155,162,170,180,198] },
+    'quocbao.koc':  { doanh_thu:115, don_hang:258, hoa_hong:11.5, leads:68,  lead_chat_luong:45, lead_chot:30, muc_tieu_rev:130, muc_tieu_lead:80,  history:[90,95,100,105,110,115] },
+  }
+};
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function callApi(params) {
+  if (!apiUrl) return null;
+  try {
+    const res = await fetch(apiUrl + '?' + new URLSearchParams(params).toString());
+    return await res.json();
+  } catch { return null; }
+}
+
+async function testApi() {
+  const url = document.getElementById('apiUrl').value.trim();
+  if (!url) return;
+  apiUrl = url;
+  document.getElementById('apiStatusText').textContent = 'Đang kiểm tra...';
+  document.getElementById('apiDot').className = 'dot';
+  const r = await callApi({ action: 'ping' });
+  if (r && r.ok) {
+    document.getElementById('apiDot').className = 'dot ok';
+    document.getElementById('apiStatusText').textContent = 'Kết nối thành công — đang dùng Google Sheets thực';
+  } else {
+    document.getElementById('apiDot').className = 'dot err';
+    document.getElementById('apiStatusText').textContent = 'Không kết nối được — kiểm tra lại URL';
+    apiUrl = '';
+  }
+}
+
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  if (!u || !p) { err.textContent = 'Vui lòng nhập đầy đủ.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Đang đăng nhập...';
+
+  let result;
+  if (apiUrl) {
+    result = await callApi({ action:'login', username:u, password:p });
+    if (!result) result = { ok:false, error:'Không kết nối được API. Kiểm tra lại URL.' };
+  } else {
+    await new Promise(r => setTimeout(r, 400));
+    const acc = DEMO.accounts.find(a => a.username===u && a.password===p);
+    if (!acc) result = { ok:false, error:'Tên đăng nhập hoặc mật khẩu không đúng' };
+    else if (acc.status==='inactive') result = { ok:false, error:'Tài khoản đang bị khóa. Liên hệ admin.' };
+    else result = { ok:true, user: { username:acc.username, role:acc.role, full_name:acc.full_name, platform:acc.platform } };
+  }
+
+  btn.disabled = false; btn.textContent = 'Đăng nhập';
+  if (!result.ok) { err.textContent = result.error; err.style.display = 'block'; return; }
+  session = result.user;
+  if (session.role === 'admin') { loadAdminData(); showScreen('screen-admin'); }
+  else { await loadPortalData(); showScreen('screen-portal'); }
+}
+
+async function loadPortalData() {
+  let koc;
+  if (apiUrl) {
+    const r = await callApi({ action:'getKocData', username:session.username });
+    koc = r && r.ok ? r.koc : null;
+  }
+  if (!koc) koc = DEMO.kocData[session.username] || { doanh_thu:0,don_hang:0,hoa_hong:0,leads:0,lead_chat_luong:0,lead_chot:0,muc_tieu_rev:100,muc_tieu_lead:50,history:[0,0,0,0,0,0] };
+
+  const idx = DEMO.accounts.findIndex(a=>a.username===session.username);
+  const initials = session.full_name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('portalAvatar').textContent = initials;
+  document.getElementById('portalAvatar').style.background = aC(Math.max(idx,0));
+  document.getElementById('portalName').textContent = session.full_name.split(' ').pop();
+
+  const conv = koc.leads>0 ? (koc.lead_chot/koc.leads*100).toFixed(1) : '0.0';
+  document.getElementById('portalMetrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Doanh thu</div><div class="metric-value">${(+koc.doanh_thu).toFixed(1)}tr</div><div class="metric-sub">tháng này</div></div>
+    <div class="metric"><div class="metric-label">Đơn hàng</div><div class="metric-value">${koc.don_hang}</div><div class="metric-sub">đơn</div></div>
+    <div class="metric"><div class="metric-label">Lead phát sinh</div><div class="metric-value">${koc.leads}</div><div class="metric-sub">Conv: ${conv}%</div></div>
+    <div class="metric"><div class="metric-label">Hoa hồng</div><div class="metric-value">${(+koc.hoa_hong).toFixed(1)}tr</div><div class="metric-sub">tháng này</div></div>
+  `;
+
+  const bar = p => p>=100?'#16a34a':p>=70?'#1B4DFF':'#f59e0b';
+  const rp=Math.round(koc.doanh_thu/koc.muc_tieu_rev*100), lp=Math.round(koc.leads/koc.muc_tieu_lead*100), cp=Math.round(koc.lead_chot/koc.muc_tieu_lead*100);
+  document.getElementById('portalProgress').innerHTML = [
+    {label:'Doanh thu',pct:rp},{label:'Lead phát sinh',pct:lp},{label:'Lead đã chốt',pct:cp}
+  ].map(r=>`<div class="prog-item"><span class="prog-label">${r.label}</span><div class="prog-bg"><div class="prog-fill" style="width:${Math.min(r.pct,100)}%;background:${bar(r.pct)}"></div></div><span class="prog-pct">${r.pct}%</span></div>`).join('');
+
+  if (portalChartInst) portalChartInst.destroy();
+  portalChartInst = new Chart(document.getElementById('portalChart'),{
+    type:'line',
+    data:{labels:['T11','T12','T1','T2','T3','T4'],datasets:[{label:'Doanh thu',data:koc.history,borderColor:aC(Math.max(idx,0)),backgroundColor:'transparent',tension:0.4,pointRadius:4,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>v+'M',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+async function loadAdminData() {
+  document.getElementById('adminLoading').style.display='block';
+  let kocs;
+  if (apiUrl) { const r=await callApi({action:'getAllKoc',role:'admin'}); kocs=r&&r.ok?r.kocs:null; }
+  if (!kocs) kocs=DEMO.accounts.filter(a=>a.role!=='admin').map(a=>({...a,doanh_thu:(DEMO.kocData[a.username]||{}).doanh_thu||0,leads:(DEMO.kocData[a.username]||{}).leads||0}));
+  document.getElementById('adminTableBody').innerHTML=kocs.map((a,i)=>{
+    const init=a.full_name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="background:${aC(i)};width:26px;height:26px;font-size:10px;">${init}</div><span style="font-weight:500">${a.full_name}</span></div></td>
+      <td style="color:var(--text2)">${a.username}</td>
+      <td><span class="badge ${PB[a.platform]||'b-blue'}">${a.platform}</span></td>
+      <td>${(+a.doanh_thu).toFixed(1)}tr</td>
+      <td><span class="badge ${a.status==='active'?'b-green':'b-amber'}">${a.status==='active'?'Hoạt động':'Tạm khóa'}</span></td>
+      <td><button class="btn-sm" onclick="toggleStatus('${a.username}','${a.status}')">${a.status==='active'?'Khóa':'Mở'}</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('adminLoading').style.display='none';
+}
+
+async function toggleStatus(username,cur) {
+  if (apiUrl) await callApi({action:'toggleStatus',role:'admin',username});
+  else { const a=DEMO.accounts.find(a=>a.username===username); if(a) a.status=cur==='active'?'inactive':'active'; }
+  loadAdminData();
+}
+
+async function addAccount() {
+  const name=document.getElementById('newName').value.trim(), user=document.getElementById('newUser').value.trim(), pass=document.getElementById('newPass').value, plat=document.getElementById('newPlat').value;
+  const err=document.getElementById('addErr'), suc=document.getElementById('addSuccess');
+  err.style.display='none'; suc.style.display='none';
+  if (!name||!user||!pass){err.textContent='Vui lòng điền đầy đủ.';err.style.display='block';return;}
+  if (pass.length<6){err.textContent='Mật khẩu tối thiểu 6 ký tự.';err.style.display='block';return;}
+  const btn=document.getElementById('btnAdd'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Đang tạo...';
+  let result;
+  if (apiUrl) result=await callApi({action:'addAccount',role:'admin',full_name:name,username:user,password:pass,platform:plat});
+  else { if(DEMO.accounts.find(a=>a.username===user)) result={ok:false,error:'Tên đăng nhập đã tồn tại'}; else {DEMO.accounts.push({username:user,password:pass,role:'koc',status:'active',full_name:name,platform:plat});DEMO.kocData[user]={doanh_thu:0,don_hang:0,hoa_hong:0,leads:0,lead_chat_luong:0,lead_chot:0,muc_tieu_rev:100,muc_tieu_lead:50,history:[0,0,0,0,0,0]};result={ok:true};} }
+  btn.disabled=false; btn.textContent='Tạo tài khoản';
+  if (!result||!result.ok){err.textContent=(result&&result.error)||'Lỗi kết nối';err.style.display='block';return;}
+  suc.style.display='block';
+  document.getElementById('newName').value=''; document.getElementById('newUser').value=''; document.getElementById('newPass').value='';
+}
+
+async function doReset() {
+  const user=document.getElementById('resetUser').value.trim(), pass=document.getElementById('resetPass').value;
+  const err=document.getElementById('resetErr'), suc=document.getElementById('resetSuccess');
+  err.style.display='none'; suc.style.display='none';
+  if (!user||!pass){err.textContent='Vui lòng điền đầy đủ.';err.style.display='block';return;}
+  if (pass.length<6){err.textContent='Mật khẩu tối thiểu 6 ký tự.';err.style.display='block';return;}
+  const btn=document.getElementById('btnReset'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Đang xử lý...';
+  let result;
+  if (apiUrl) result=await callApi({action:'resetPassword',role:'admin',username:user,newPassword:pass});
+  else { const a=DEMO.accounts.find(a=>a.username===user); if(!a) result={ok:false,error:'Không tìm thấy tài khoản'}; else {a.password=pass;result={ok:true};} }
+  btn.disabled=false; btn.textContent='Xác nhận đặt lại';
+  if (!result||!result.ok){err.textContent=(result&&result.error)||'Lỗi';err.style.display='block';return;}
+  suc.style.display='block';
+  document.getElementById('resetUser').value=''; document.getElementById('resetPass').value='';
+}
+
+function doLogout() {
+  session=null;
+  document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').style.display='none';
+  showScreen('screen-login');
+}
+
+function switchATab(id) {
+  const tabs=['accounts','add','reset'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===id));
+  document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('atab-'+id).classList.add('active');
+  if(id==='accounts') loadAdminData();
+}
+</script>
+</body>
+</html>
